@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -250,16 +250,36 @@
 <jsp:include page="common/dependency_js.jsp"/>
 
 <script>
-    let selectedProducts = [];
-    let selectedAddress = '${user.address}';
-    let selectedPaymentMethod = 'alipay';
-    let totalAmount = 0;
+    var selectedProducts = [];
+    var selectedAddress = '${user.address}';
+    var selectedPaymentMethod = 'alipay';
+    var totalAmount = 0;
+    
+    // 获取URL参数的兼容函数
+    function getUrlParams() {
+        var params = {};
+        var search = window.location.search.substring(1);
+        if (search) {
+            var pairs = search.split('&');
+            for (var i = 0; i < pairs.length; i++) {
+                var pair = pairs[i].split('=');
+                params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+            }
+        }
+        return params;
+    }
 
     $(document).ready(function() {
         // 获取商品ID列表
-        const urlParams = new URLSearchParams(window.location.search);
-        const productIdsParam = urlParams.get('productIds');
-        const productIds = productIdsParam ? productIdsParam.split(',').map(id => parseInt(id)) : [];
+        var urlParams = getUrlParams();
+        var productIdsParam = urlParams['productIds'];
+        var productIds = [];
+        if (productIdsParam) {
+            var idStrings = productIdsParam.split(',');
+            for (var i = 0; i < idStrings.length; i++) {
+                productIds.push(parseInt(idStrings[i]));
+            }
+        }
         console.log('Product IDs:', productIds);
         
         if (productIds.length === 0) {
@@ -270,15 +290,23 @@
         // 加载商品信息
         loadProducts(productIds);
         
-        // 地址选择
-        $('.address-item').click(function() {
+        // 初始化已选中的地址
+        var defaultAddress = $('.address-item.selected');
+        console.log('找到的地址元素数量:', defaultAddress.length);
+        if (defaultAddress.length > 0) {
+            selectedAddress = defaultAddress.data('address');
+            console.log('初始化地址:', selectedAddress);
+        }
+        
+        // 地址选择 - 使用事件委托
+        $(document).on('click', '.address-item', function() {
             $('.address-item').removeClass('selected');
             $(this).addClass('selected');
             selectedAddress = $(this).data('address');
         });
         
-        // 支付方式选择
-        $('.payment-method').click(function() {
+        // 支付方式选择 - 使用事件委托
+        $(document).on('click', '.payment-method', function() {
             $('.payment-method').removeClass('selected');
             $(this).addClass('selected');
             selectedPaymentMethod = $(this).data('method');
@@ -295,9 +323,9 @@
         
         // 构建表单数据
         var formData = new FormData();
-        productIds.forEach(function(id) {
-            formData.append('productIds', id);
-        });
+        for (var i = 0; i < productIds.length; i++) {
+            formData.append('productIds', productIds[i]);
+        }
         
         $.ajax({
             url: '${pageContext.request.contextPath}/cart/getSelectedItems',
@@ -324,40 +352,41 @@
 
     function displayProducts(products) {
         selectedProducts = products;
-        let html = '';
+        var html = '';
         
-        products.forEach(function(item) {
-            html += `
-                <div class="product-item">
-                    <div class="row align-items-center">
-                        <div class="col-auto">
-                            <img src="${pageContext.request.contextPath}/static/images/products/\${item.product.image || 'default.jpg'}" 
-                                 class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover;"
-                                 onerror="this.src='${pageContext.request.contextPath}/static/images/products/default.jpg'">
-                        </div>
-                        <div class="col">
-                            <h6 class="mb-1">\${item.product.name}</h6>
-                            <p class="text-muted small mb-0">\${item.product.description}</p>
-                        </div>
-                        <div class="col-auto">
-                            <span class="text-muted">×\${item.quantity}</span>
-                        </div>
-                        <div class="col-auto">
-                            <span class="fw-bold">¥\${(item.product.price * item.quantity).toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
+        for (var i = 0; i < products.length; i++) {
+            var item = products[i];
+            html += 
+                '<div class="product-item">' +
+                    '<div class="row align-items-center">' +
+                        '<div class="col-auto">' +
+                            '<img src="${pageContext.request.contextPath}/static/images/products/' + (item.product.image || 'default.jpg') + '"' + 
+                                 ' class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover;"' +
+                                 ' onerror="this.src=\'${pageContext.request.contextPath}/static/images/products/default.jpg\'">' +
+                        '</div>' +
+                        '<div class="col">' +
+                            '<h6 class="mb-1">' + item.product.name + '</h6>' +
+                            '<p class="text-muted small mb-0">' + item.product.description + '</p>' +
+                        '</div>' +
+                        '<div class="col-auto">' +
+                            '<span class="text-muted">×' + item.quantity + '</span>' +
+                        '</div>' +
+                        '<div class="col-auto">' +
+                            '<span class="fw-bold">¥' + (item.product.price * item.quantity).toFixed(2) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
         
         $('#productList').html(html);
     }
 
     function calculateTotal() {
-        let subtotal = 0;
-        selectedProducts.forEach(function(item) {
+        var subtotal = 0;
+        for (var i = 0; i < selectedProducts.length; i++) {
+            var item = selectedProducts[i];
             subtotal += item.product.price * item.quantity;
-        });
+        }
         
         totalAmount = subtotal;
         $('#subtotal').text('¥' + subtotal.toFixed(2));
@@ -368,9 +397,9 @@
     }
 
     function useNewAddress() {
-        const receiverName = $('#newReceiverName').val().trim();
-        const receiverPhone = $('#newReceiverPhone').val().trim();
-        const newAddress = $('#newAddress').val().trim();
+        var receiverName = $('#newReceiverName').val().trim();
+        var receiverPhone = $('#newReceiverPhone').val().trim();
+        var newAddress = $('#newAddress').val().trim();
         
         if (!receiverName || !receiverPhone || !newAddress) {
             showMessage('请填写完整的地址信息', {type: 'error'});
@@ -381,18 +410,17 @@
         
         // 更新地址显示
         $('.address-item').removeClass('selected');
-        const newAddressHtml = `
-            <div class="address-item selected" data-address="\${newAddress}">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h6 class="mb-1">\${receiverName}</h6>
-                        <p class="mb-1">\${receiverPhone}</p>
-                        <p class="mb-0 text-muted">\${newAddress}</p>
-                    </div>
-                    <span class="badge bg-success">新地址</span>
-                </div>
-            </div>
-        `;
+        var newAddressHtml = 
+            '<div class="address-item selected" data-address="' + newAddress + '">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
+                    '<div>' +
+                        '<h6 class="mb-1">' + receiverName + '</h6>' +
+                        '<p class="mb-1">' + receiverPhone + '</p>' +
+                        '<p class="mb-0 text-muted">' + newAddress + '</p>' +
+                    '</div>' +
+                    '<span class="badge bg-success">新地址</span>' +
+                '</div>' +
+            '</div>';
         
         $('.section-content').prepend(newAddressHtml);
         $('#newAddressForm').collapse('hide');
@@ -401,6 +429,7 @@
     }
 
     function submitOrder() {
+        console.log('提交订单时的地址:', selectedAddress);
         if (!selectedAddress) {
             showMessage('请选择收货地址', {type: 'error'});
             return;
@@ -413,7 +442,10 @@
         
         $('#submitOrderBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>提交中...');
         
-        const productIds = selectedProducts.map(item => item.productId);
+        var productIds = [];
+        for (var i = 0; i < selectedProducts.length; i++) {
+            productIds.push(selectedProducts[i].productId);
+        }
         
         $.ajax({
             url: '${pageContext.request.contextPath}/order/create',
