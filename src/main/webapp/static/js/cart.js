@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams();
         productIds.forEach(id => params.append('productIds', id));
         
-        window.location.href = '/javaee-coursedesign/order/checkout?' + params.toString();
+        window.location.href = '/shop/order/checkout?' + params.toString();
     })
 
 })
